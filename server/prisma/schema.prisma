@@ -1,0 +1,68 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"
+  url = env("DATABASE_URL") }
+
+enum Role { TEACHER STUDENT }
+
+model User {
+  id          String       @id @default(uuid())
+  name        String
+  email       String       @unique
+  password    String
+  role        Role
+  createdAt   DateTime     @default(now())
+  tests       Test[]
+  submissions Submission[]
+}
+
+model Test {
+  id        String     @id @default(uuid())
+  title     String
+  teacherId String
+  teacher   User       @relation(fields: [teacherId], references: [id])
+  questions Question[]
+  sessions  Session[]
+  createdAt DateTime   @default(now())
+}
+
+// "type" decides the plugin (mcq, short, fill, code). "data" holds the AI-generated JSON.
+model Question {
+  id         String @id @default(uuid())
+  testId     String
+  test       Test   @relation(fields: [testId], references: [id], onDelete: Cascade)
+  type       String
+  topic      String?
+  difficulty String @default("medium")
+  data       Json
+  position   Int    @default(0)
+}
+
+model Session {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  testId      String
+  test        Test         @relation(fields: [testId], references: [id])
+  status      String       @default("LOBBY") // LOBBY | LIVE | ENDED
+  createdAt   DateTime     @default(now())
+  startedAt   DateTime?
+  endedAt     DateTime?
+  endsAt      DateTime?
+  submissions Submission[]
+}
+
+// Once a session is ENDED, a student's Submission links them to the questions for practice.
+model Submission {
+  id        String   @id @default(uuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id])
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id])
+  answers   Json     @default("{}")
+  score     Float    @default(0)
+  results   Json     @default("{}")
+  submittedAt DateTime?
+  integrity Int      @default(100)
+  events    Json     @default("[]")
+  createdAt DateTime @default(now())
+  @@unique([sessionId, studentId])
+}
